@@ -9,7 +9,15 @@ ADD . /FaceDetection
 
 # Install any needed packages
 RUN apt-get update
-RUN apt-get install -y wget python-pip python-dev protobuf-compiler python-pil python-lxml
+RUN apt-get install -y wget python-pip python-dev protobuf-compiler python-pil python-lxml git
+
+#Install Object Recognition Framework
+RUN git clone https://github.com/tensorflow/models.git
+RUN pip install tensorflow
+RUN pip install jupyter
+RUN pip install matplotlib
+RUN cd models && protoc object_detection/protos/*.proto --python_out=.
+RUN cd models && export PYTHONPATH=$PYTHONPATH:`pwd`:`pwd`/slim
 
 # Download and Extract Data Sets
 RUN wget http://vis-www.cs.umass.edu/lfw/lfw.tgz
@@ -21,19 +29,8 @@ RUN rm lfw.tgz 101_ObjectCategories.tar.gz
 RUN mkdir lfw_sorted
 RUN mkdir 101_sorted
 RUN mv $(ls -d lfw/*/*) lfw_sorted/
-RUN cd 101_ObjectCategories
-RUN mv $(FILES=$(ls -d */*); for FILE in $FILES; do echo "$FILE" | sed "s/\//-/g"; done) /FaceDetection/101_sorted/
-RUN cd /FaceDetection
+RUN cd 101_ObjectCategories && FILES=$(ls -d */*); for FILE in $FILES; do mv $FILE /FaceDetection/101_sorted/$(echo "$FILE" | sed "s/\//-/g"); done
 RUN rm -rf lfw 101_ObjectCategories
-
-#Install Object Recognition Framework
-RUN git clone https://github.com/tensorflow/models.git
-RUN pip install tensorflow
-RUN pip install jupyter
-RUN pip install matplotlib
-RUN cd models
-RUN protoc object_detection/protos/*.proto --python_out=.
-RUN export PYTHONPATH=$PYTHONPATH:`pwd`:`pwd`/slim
 
 
 
