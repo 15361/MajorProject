@@ -1,4 +1,5 @@
 import sys, os
+import io
 import tensorflow as tf
 from PIL import Image
 
@@ -6,8 +7,10 @@ from object_detection.utils import dataset_util
 
 
 flags = tf.app.flags
-flags.DEFINE_string('output_path', '', 'Path to output TFRecord')
-flags.DEFINE_string('input_path', '', 'Path to input jpg')
+flags.DEFINE_string('output_path', '', 'Path to output directory for TFRecord')
+flags.DEFINE_string('input_path', '', 'Path to input jpg directory')
+flags.DEFINE_string('train_file', '', 'Path to training split txt')
+flags.DEFINE_string('test_file', '', 'Path to test split txt')
 FLAGS = flags.FLAGS
 
 
@@ -43,20 +46,37 @@ def create_tf_example(_filename, _encoded_image_data, _width, _height):
   }))
   return tf_example
 
+def processFile(writer, f):
+	for line in f:
+		entry_info = line.split("\t")
+		if len(entry_info) < 2:
+			print "Processing " + line.rstrip() + " entries"
+			continue
+		name = entry_info[0]
+		image_id = int(entry_info[1])
+		file = name + "_" + format(image_id, '04') + ".jpg"
+		sys.stdout.write("Processing image " + file + "                   \r")
+		sys.stdout.flush()
+		with tf.gfile.GFile(os.path.join(FLAGS.input_path, file), 'rb') as fid:
+			enc_data = fid.read()
+		jpgfile = Image.open(io.BytesIO(enc_data))
+		tf_example = create_tf_example(file, enc_data, jpgfile.size[0], jpgfile.size[1])
+		writer.write(tf_example.SerializeToString())
 
 def main(_):
   print "Output path: " + str(FLAGS.output_path) + " Input path: " + str(FLAGS.input_path)
-  writer = tf.python_io.TFRecordWriter(FLAGS.output_path)
 
-  files = []
-
-  for file in os.listdir(FLAGS.input_path):
-    jpgfile = Image.open(FLAGS.input_path + "/" + file)
+  with open(FLAGS.train_file, "r") as f:
+    print "Reading training split from " + str(FLAGS.train_file)
+    writer = tf.python_io.TFRecordWriter(os.path.join(FLAGS.output_path, "lfw_train.record"))
+    processFile(writer, f)
+    writer.close()
 	
-    tf_example = create_tf_example(file, list(jpgfile.getdata()), jpgfile.size[0], jpgfile.size[1])
-    writer.write(tf_example.SerializeToString())
-
-  writer.close()
+  with open(FLAGS.test_file, "r") as f:
+    print "Reading training split from " + str(FLAGS.test_file)
+    writer = tf.python_io.TFRecordWriter(os.path.join(FLAGS.output_path, "lfw_test.record"))
+    processFile(writer, f)
+    writer.close()
 
 
 if __name__ == '__main__':
