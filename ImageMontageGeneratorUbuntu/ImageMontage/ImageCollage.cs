@@ -15,28 +15,28 @@ namespace ImageCollage {
 	public class ImageCollage {
 
         /// <summary>
-        /// The minimum threshold for absolute displacement in an iteration 
+        /// The minimum threshold for absolute displacement in an iteration
         /// before the arrangement is regarded as stable.
         /// </summary>
 		const float MIN_DISPLACEMENT = 10f;
         /// <summary>
-        /// The magnitude of the force that pulls the images towards the 
+        /// The magnitude of the force that pulls the images towards the
         /// center of the screen.
         /// </summary>
 		const float PULLING_FORCE = 10f;
         /// <summary>
-        /// The amount by which the velocity of each image is reduced in the 
+        /// The amount by which the velocity of each image is reduced in the
         /// following cycle.
         /// </summary>
 		const float DAMPING = 0.5f;
         /// <summary>
-        /// The amount by which the original force decays when a collision 
+        /// The amount by which the original force decays when a collision
         /// occurs between two images.
         /// </summary>
 		const float ABSORBANCE = 0.5f;
         /// <summary>
-        /// The maximum number of iterations before the algorithm will 
-        /// terminate. If this number is reached before the arrangement 
+        /// The maximum number of iterations before the algorithm will
+        /// terminate. If this number is reached before the arrangement
         /// achieves stability, other constants may need to be tweaked.
         /// </summary>
 		const int MAX_ITERATIONS = 200;
@@ -132,7 +132,7 @@ namespace ImageCollage {
 							Vector bounceBack = new Vector(-image.Velocity.Magnitude, Vector.GetBearingAngle(image.Center, collidesWith.Center));
 							netForce = Vector.Add(Vector.Multiply(netForce, ABSORBANCE), bounceBack);
 							image.Velocity = Vector.Add(Vector.Multiply(oldVelocity, DAMPING), netForce);
-							
+
 							// try sliding along edges (given that we can't move to the target position)
 							RectangleF tryX = new RectangleF(image.Location.X, oldPosition.Y, image.Width, image.Height);
 							RectangleF tryY = new RectangleF(oldPosition.X, image.Location.Y, image.Width, image.Height);
@@ -224,7 +224,7 @@ namespace ImageCollage {
 		/// </summary>
 		private void Distribute() {
 			ImageInfo dontCare;
-            Random rnd = new Random();
+            Random rnd = new Random(System.Guid.NewGuid().GetHashCode());
 
             if (InitialArrangement == InitialArrangement.Random) {
                 foreach (ImageInfo image in Images) {
@@ -245,7 +245,7 @@ namespace ImageCollage {
                     shuffleOrder[rand_index] = shuffleOrder[j];
                     shuffleOrder[j] = ndx;
                 }
-                
+
                 int i = 0;
                 int divs = (int)Math.Ceiling(Math.Sqrt(n));
                 for (int y = 0; y < divs; y++) {
@@ -277,7 +277,7 @@ namespace ImageCollage {
 		/// <returns></returns>
 		private Bitmap RenderInternal(bool preview) {
 			Bitmap bmp = new Bitmap((int)Width, (int)Height);
-			
+
 			RectangleF totalArea = CalcTotalArea();
 
 			float scaleBy = Math.Min(Width / totalArea.Width, Height / totalArea.Height);
@@ -305,7 +305,8 @@ namespace ImageCollage {
 
 					bounds.X += (Width - (totalArea.Width * scaleBy)) / 2;
 					bounds.Y += (Height - (totalArea.Height * scaleBy)) / 2;
-
+					
+					info.finalBounds = bounds;
                     if (preview) {
                         Rectangle integral = new Rectangle(new Point((int)bounds.X, (int)bounds.Y), bounds.Size.ToSize());
                         g.FillRectangle(Brushes.DarkGray, integral);
@@ -313,7 +314,14 @@ namespace ImageCollage {
                     }
                     else {
                         using (Bitmap img = new Bitmap(info.Path)) {
-                            g.DrawImage(img, bounds);
+													if (SoftEdges) {
+															using (Bitmap soft = SoftEdgeBitmaps.MakeSoftEdgeBitmap(img, bounds.Size.ToSize())) {
+																	g.DrawImage(soft, bounds);
+															}
+													}
+													else {
+															g.DrawImage(img, bounds);
+													}
                         }
                     }
 				}
@@ -376,6 +384,10 @@ namespace ImageCollage {
 	/// Represents an image in the montage.
 	/// </summary>
 	public class ImageInfo {
+
+	public RectangleF finalBounds;
+
+
         /// <summary>
         /// Gets the path to the image.
         /// </summary>
@@ -505,7 +517,7 @@ namespace ImageCollage {
             X = Y = 0f;
             Velocity = new Vector(0, 0);
 
-            // images will be of a uniform size if we take the average of the 
+            // images will be of a uniform size if we take the average of the
             // resulting sizes when either the width or height is fixed
 			float w1 = RelativeSize;
 			float h1 = CalcHeight(w1);

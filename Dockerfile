@@ -36,6 +36,13 @@ RUN mv $(ls -d lfw/*/*) lfw_sorted/
 RUN cd 101_ObjectCategories && FILES=$(ls -d */*); for FILE in $FILES; do mv $FILE /FaceDetection/101_sorted/$(echo "$FILE" | sed "s/\//-/g"); done
 RUN rm -rf lfw 101_ObjectCategories
 
+# Get FDDB Datasets
+RUN wget http://vis-www.cs.umass.edu/fddb/FDDB-folds.tgz
+RUN tar -xvf FDDB-folds.tgz
+RUN wget http://tamaraberg.com/faceDataset/originalPics.tar.gz
+RUN mkdir FDDB-pics
+RUN tar -xvf originalPics.tar.gz FDDB-pics/
+
 # Install split data
 RUN wget http://vis-www.cs.umass.edu/lfw/peopleDevTrain.txt
 RUN wget http://vis-www.cs.umass.edu/lfw/peopleDevTest.txt
