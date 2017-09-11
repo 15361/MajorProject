@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -30,14 +30,14 @@ namespace ImageCollage {
             }
 
 
-            for (int i = 0; i < 2; i++)
+            for (int i = 0; i < 100; i++)
             {
                 GenerateCollage collage_generator = new GenerateCollage();
                 collage_generator.face_directory_path = args[0];
                 collage_generator.non_face_directory_path = args[1];
                 collage_generator.output_directory_path = args[2];
-		collage_generator.face_files = face_files;
-		collage_generator.non_face_files = non_face_files;
+		        collage_generator.face_files = face_files;
+                collage_generator.non_face_files = non_face_files;
                 collage_generator.Generate(rand.Next(1, 20), true);
                 collage_generator.Save("Collage" + i.ToString());
                 Console.Write("Generating " + i.ToString() + "th image\r");
