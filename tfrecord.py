@@ -11,6 +11,7 @@ import json
 flags = tf.app.flags
 flags.DEFINE_string('output_path', '', 'Path to output directory for TFRecord')
 flags.DEFINE_string('input_path', '', 'Path to input jpg directory')
+flags.DEFINE_string('metadata_path', '', 'Path to input metadata directory')
 flags.DEFINE_boolean('eval', False, 'Whether it is eval job or not')
 FLAGS = flags.FLAGS
 
@@ -37,16 +38,21 @@ def create_tf_example(_filename, _encoded_image_data, _width, _height, _metadata
   classes_text = []  # List of string class name of bounding box (1 per box)
   classes = [] # List of integer class id of bounding box (1 per box)
 
-  for line in metadata:
-    if len(line) <= 2:
-       continue
-    entries = [ e[2:] for e in line.split(' ')[1:-1] ] # drop leading letter and colon
-    if entries[0] == "False":
-       continue
-    x = float(entries[1])
-    y = float(entries[2])
-    w = float(entries[3])
-    h = float(entries[4])
+  number_entries = int(next(metadata))
+  for i in range(0, number_entries):
+    next_line = next(metadata).strip('\n')
+
+    data = [ float(entry) for entry in next_line.split(' ')[:-2] ]
+    centre_x = data[3]
+    centre_y = data[4]
+
+    r_major = data[0] * math.cos(data[2] * math.pi / 180)
+    r_minor = data[1] * math.cos(data[2] * math.pi / 180)
+
+    x = float(centre_x - r_minor)
+    y = float(centre_y - r_major)
+    w = float(r_minor * 2)
+    h = float(r_major * 2)
 
     if math.isnan(x) or math.isnan(y) or math.isnan(w) or math.isnan(h) or height is 0 or width is 0:
 	print "NAN!"
@@ -79,18 +85,23 @@ def create_tf_example(_filename, _encoded_image_data, _width, _height, _metadata
   return tf_example
 
 def processFiles(writer):
-	files = os.listdir(FLAGS.input_path)
+	files = os.listdir(FLAGS.metadata_path)
 	random.shuffle(files)
-	for file in files:
-		if file[-3:] == "txt":
+	for metadata_file in files:
+		if "ellipseList" not in metadata_file:
 			continue
-		with tf.gfile.GFile(os.path.join(FLAGS.input_path, file), 'rb') as fid:
-			enc_data = fid.read()
-		jpgfile = Image.open(io.BytesIO(enc_data))
 
-		with open(FLAGS.input_path + "/" + file[:-3] + "txt") as metadata:
-			tf_example = create_tf_example(file, enc_data, jpgfile.size[0], jpgfile.size[1], metadata)
-		writer.write(tf_example.SerializeToString())
+		with open(os.path.join(FLAGS.metadata_path, metadata_file)) as metadata:
+			for file in metadata:
+				filepath = os.path.join(FLAGS.input_path, file.strip('\n') + ".jpg")
+				if "/" not in file:
+					continue
+				with tf.gfile.GFile(filepath, 'rb') as fid:
+					enc_data = fid.read()
+				jpgfile = Image.open(io.BytesIO(enc_data))
+
+				tf_example = create_tf_example(filepath, enc_data, jpgfile.size[0], jpgfile.size[1], metadata)
+				writer.write(tf_example.SerializeToString())
 
 def main(_):
 	print "Output path: " + str(FLAGS.output_path) + " Input path: " + str(FLAGS.input_path)

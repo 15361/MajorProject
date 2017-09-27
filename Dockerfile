@@ -41,7 +41,7 @@ RUN wget http://vis-www.cs.umass.edu/fddb/FDDB-folds.tgz
 RUN tar -xvf FDDB-folds.tgz
 RUN wget http://tamaraberg.com/faceDataset/originalPics.tar.gz
 RUN mkdir FDDB-pics
-RUN tar -xvf originalPics.tar.gz FDDB-pics/
+RUN cd FDDB-pics && tar -xvf ../originalPics.tar.gz
 
 # Install split data
 RUN wget http://vis-www.cs.umass.edu/lfw/peopleDevTrain.txt
