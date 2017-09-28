@@ -28,7 +28,7 @@ CWD_PATH = os.getcwd()
 
 # Path to frozen detection graph. This is the actual model that is used for the object detection.
 # Path to frozen detection graph. This is the actual model that is used for the object detection.
-PATH_TO_CKPT = '/home/stokes/ScratchSpace/MajorProject/models/rtf_lfw/frozen/frozen_inference_graph.pb'
+PATH_TO_CKPT = '/home/stokes/ScratchSpace/MajorProject/models/tf_lfw/frozen/frozen_inference_graph.pb'
 
 # List of the strings that is used to add correct label for each box.
 PATH_TO_LABELS = '/home/stokes/ScratchSpace/MajorProject/models/tf_lfw/data/lfw_label_map.pbtxt'
