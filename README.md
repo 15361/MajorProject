@@ -16,7 +16,46 @@ Follow instructions https://www.tensorflow.org/install/install_sources to instal
 From tensorflow root directory  
 ```
 bazel build -c opt //tensorflow:libtensorflow.so   
-sudo cp bazel-bin/tensorflow/libtensorflow.so /usr/local/lib
+sudo cp bazel-bin/tensorflow/libtensorflow.so /usr/local/lib  
+
+mkdir /usr/local/include/tensorflow
+cp -r bazel-genfiles/ /usr/local/include/tensorflow/
+cp -r tensorflow /usr/local/include/tensorflow/
+cp -r third_party /usr/local/include/tensorflow/
+```
+
+Install tensorflow dependencies
+
+
+*Protobuf*
+```
+mkdir /tmp/proto
+tensorflow/contrib/makefile/download_dependencies.sh
+cd tensorflow/contrib/makefile/downloads/protobuf/
+./autogen.sh
+./configure --prefix=/tmp/proto/
+make
+make install
+
+cp /tmp/proto/lib/libprotobuf.so /usr/local/lib
+cp -r /tmp/proto/include/* /usr/local/include
+```
+
+*Eigen*
+```
+mkdir /tmp/eigen
+cd tensorflow/contrib/makefile/downloads/eigen
+mkdir build
+cd build
+cmake -DCMAKE_INSTALL_PREFIX=/tmp/eigen/ ../
+make install
+
+cp -r /tmp/eigen/include/eigen3/* /usr/local/include
+```
+
+*Others*
+```
+cp -r tensorflow/contrib/makefile/downloads/nsync/public/* /usr/local/include/nsync
 ```
 
 

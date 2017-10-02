@@ -1,4 +1,6 @@
 #include <opencv2/opencv.hpp>
+#include <tensorflow/core/public/session.h>
+#include <tensorflow/core/platform/env.h>
 
 void ProcFrame(cv::Mat frame)
 {
