@@ -106,9 +106,6 @@ with detection_graph.as_default():
 # In[11]:
 
 
-from moviepy.editor import VideoFileClip
-from IPython.display import HTML
-
 def process_image(image):
     # NOTE: The output you return should be a color image (3 channel) for processing video below
     # you should return the final output (image with lines are drawn on lanes)
@@ -117,6 +114,39 @@ def process_image(image):
             image_process = detect_objects(image, sess, detection_graph)
             return image_process
 
-clip1 = VideoFileClip("in.mp4").subclip(0, 2)
-white_clip = clip1.fl_image(process_image) #NOTE: this function expects color images!!s
-white_clip.write_videofile("out.mp4", audio=False, bitrate="5000k")
+import cv2
+
+cap = cv2.VideoCapture("./in.mp4")
+while not cap.isOpened():
+    cap = cv2.VideoCapture("./in.mp4")
+    cv2.waitKey(1000)
+    print "Wait for the header"
+
+pos_frame = cap.get(1)
+
+fps = int(cap.get(5))
+
+while True:
+    flag, frame = cap.read()
+    idx = cap.get(1)
+    if flag and idx % fps == 0:
+        # The frame is ready and already captured
+        cv2.imshow('video', process_image(frame))
+        pos_frame = cap.get(1)
+        print str(pos_frame)+" frames"
+    elif idx % fps != 0:
+        print "Skipping Frame"
+    else:
+        # The next frame is not ready, so we try to read it again
+        cap.set(1, pos_frame-1)
+        print "frame is not ready"
+        # It is better to wait for a while for the next frame to be ready
+        cv2.waitKey(1000)
+
+
+    if cv2.waitKey(10) == 27:
+        break
+    if cap.get(1) == cap.get(7):
+        # If the number of captured frames is equal to the total number of frames,
+        # we stop
+        break
