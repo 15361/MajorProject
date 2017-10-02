@@ -116,9 +116,9 @@ def process_image(image):
 
 import cv2
 
-cap = cv2.VideoCapture("./in.mp4")
+cap = cv2.VideoCapture("./video/in.mp4")
 while not cap.isOpened():
-    cap = cv2.VideoCapture("./in.mp4")
+    cap = cv2.VideoCapture("./video/in.mp4")
     cv2.waitKey(1000)
     print "Wait for the header"
 
