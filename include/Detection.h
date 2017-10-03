@@ -12,7 +12,7 @@ namespace MajorProject
 class Detector
 {
 public:
-    Detector( Database& _database )
+    Detector( Database* _database )
         : session( nullptr )
         , confidence_threshold( 0.5 )
         , label_map( { { 1, "face" } } )
@@ -84,7 +84,7 @@ public:
     /*
      * @SetDatabase	Sets logging database for recording detected faces
      */
-    void SetDatabase( Database& _database )
+    void SetDatabase( Database* _database )
     {
         database = _database;
     }
@@ -102,6 +102,7 @@ private:
     int VisualiseDetection( std::vector< cv::Mat* >& frame, std::vector< tensorflow::Tensor >& detection_results );
 
     int LogDetection( LogType log_type,
+                      std::vector< cv::Mat* > frames,
                       std::vector< tensorflow::Tensor >& detection_results,
                       std::string& file_name,
                       std::vector< size_t > frame_ids );
@@ -109,7 +110,7 @@ private:
     tensorflow::Session* session;
     double confidence_threshold;
     std::map< size_t, std::string > label_map;
-    Database database;
+    Database* database;
     size_t batch_size;
 };
 }

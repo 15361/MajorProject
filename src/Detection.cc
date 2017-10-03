@@ -126,7 +126,9 @@ int Detector::ProcMP4( std::string& mp4_path, bool visualise )
     // Aim for 1 batch per second
     size_t drop_frames = fps / batch_size;
     std::vector< cv::Mat* > frames;
-    frames.reserve( fps );
+    std::vector< size_t > frame_ids;
+    frames.reserve( batch_size );
+    frame_ids.reserve( batch_size );
     for( size_t i = 0; i < frame_count; i++ )
     {
         cv::Mat* frame = new cv::Mat();
@@ -134,14 +136,17 @@ int Detector::ProcMP4( std::string& mp4_path, bool visualise )
         if( i % drop_frames == 0 )
         {
             frames.push_back( frame );
+            frame_ids.push_back( i );
         }
         else
         {
             delete frame; // Drop frame
         }
+
         if( frames.size() == batch_size )
         {
             auto start = std::chrono::steady_clock::now();
+
             tensorflow::Tensor input_tensor = CreateTensor( frames );
 
             std::vector< tensorflow::Tensor > output_tensors;
@@ -150,7 +155,7 @@ int Detector::ProcMP4( std::string& mp4_path, bool visualise )
                 return -1;
             }
 
-            if( LogDetection( MP4, output_tensors ) == -1 )
+            if( LogDetection( LogType::MP4, frames, output_tensors, mp4_path, frame_ids ) == -1 )
             {
                 return -1;
             }
@@ -166,21 +171,26 @@ int Detector::ProcMP4( std::string& mp4_path, bool visualise )
                 {
                     frame_queue.push( frames[ j ] );
                 }
-                frames.clear();
             }
+
+            frames.clear();
+            frame_ids.clear();
+
+
             auto end = std::chrono::steady_clock::now();
             auto diff = end - start;
             std::cout << std::chrono::duration< double, std::milli >( diff ).count() << " ms" << std::endl;
         }
     }
-    frame_queue.push( nullptr );
+
 
     if( visualise )
     {
+        frame_queue.push( nullptr );
         pthread_join( vis_thread, NULL );
     }
 
-    while( frame_queue.size() != 0 )
+    while( !frame_queue.empty() )
     {
         auto frame = frame_queue.front();
         frame_queue.pop();
@@ -253,10 +263,12 @@ int Detector::VisualiseDetection( std::vector< cv::Mat* >& frames,
                 size_t pixel_min_x = frame.cols * box( i, j, 1 );
                 size_t pixel_max_y = frame.rows * box( i, j, 2 );
                 size_t pixel_max_x = frame.cols * box( i, j, 3 );
+                size_t blue = (pixel_min_x >= pixel_max_x) ? 255 : 0;
+                size_t red = (pixel_min_y >= pixel_max_y) ? 255 : 0;
                 cv::rectangle( frame,
                                cv::Point( pixel_min_x, pixel_min_y ),
                                cv::Point( pixel_max_x, pixel_max_y ),
-                               cv::Scalar( 0, 255, 0 ),
+                               cv::Scalar( red, 255, blue ),
                                2 );
                 cv::putText( frame,
                              label_map[ box_class ] + " " + std::to_string( ( size_t )( confidence * 100.0f ) ),
@@ -273,6 +285,7 @@ int Detector::VisualiseDetection( std::vector< cv::Mat* >& frames,
 }
 
 int Detector::LogDetection( LogType log_type,
+                            std::vector< cv::Mat* > frames,
                             std::vector< tensorflow::Tensor >& detection_results,
                             std::string& file_name,
                             std::vector< size_t > frame_ids )
@@ -289,24 +302,21 @@ int Detector::LogDetection( LogType log_type,
             size_t box_class = (size_t)detection_results[ 2 ].matrix< float >()( i, j );
             if( confidence >= confidence_threshold && label_map.find( box_class ) != label_map.end() )
             {
-                size_t pixel_min_y = frame.rows * box_tensor( i, j, 0 );
-                size_t pixel_min_x = frame.cols * box_tensor( i, j, 1 );
-                size_t pixel_max_y = frame.rows * box_tensor( i, j, 2 );
-                size_t pixel_max_x = frame.cols * box_tensor( i, j, 3 );
                 BoundingBox box;
-                box.x_max = pixel_max_x;
-                box.y_max = pixel_max_y;
-                box.x_min = pixel_min_x;
-                box.y_min = pixel_min_y;
+                box.y_min = frame.rows * box_tensor( i, j, 0 );
+                box.x_min = frame.cols * box_tensor( i, j, 1 );
+                box.y_max = frame.rows * box_tensor( i, j, 2 );
+                box.x_max = frame.cols * box_tensor( i, j, 3 );
 
                 box.label_id = (size_t)box_class;
-                box.label = label_map.find( box_class );
+                box.label = label_map[ box_class ];
                 box.confidence = confidence;
                 log_data.push_back( box );
             }
         }
 
-        if( database.LogDetection( log_type, log_data, file_name, frame_ids.empty() ? 0 : frame_ids[ i ] ) == -1 )
+        if( database->LogDetection( log_type, log_data, file_name, frame_ids.empty() ? -1 : (ssize_t)frame_ids[ i ] ) ==
+            -1 )
         {
             return -1;
         }

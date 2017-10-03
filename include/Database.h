@@ -1,4 +1,12 @@
 #pragma once
+#include <stdlib.h>
+#include <string>
+#include <vector>
+#include <fstream>
+#include <iostream>
+#include <sstream>
+#include <limits.h>
+
 namespace MajorProject
 {
 enum class LogType : int
@@ -28,11 +36,10 @@ public:
     {
     }
 
-    int
-    LogDetection( LogType log_type, std::vector< BoundingBox >& detections, std::string& infile, size_t frame_id = 0 )
-    {
-        return 0;
-    }
+    int LogDetection( LogType log_type,
+                      std::vector< BoundingBox >& detections,
+                      std::string& infile,
+                      ssize_t frame_id = -1 );
 
     void SetDataDir( std::string& _data_directory )
     {
