@@ -34,7 +34,8 @@ set(CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS} " -Wall -Werror -Wstrict-aliasing=2 -fPIC
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/bin)
 link_directories(/usr/local/lib)
-include_directories(/usr/local/include/
+include_directories(${CMAKE_SOURCE_DIR}/include
+					/usr/local/include/
 					/usr/local/include/tensorflow
 					/usr/local/include/tensorflow/bazel-genfiles
 					/usr/local/include/tensorflow/third_party)
@@ -43,6 +44,7 @@ execute_process(COMMAND pkg-config --libs opencv
 				OUTPUT_VARIABLE OPENCV_LIBS 
 				OUTPUT_STRIP_TRAILING_WHITESPACE)
 
+add_subdirectory(src)
+
 add_executable(StreamingDemo StreamingDemo.cc)
-target_link_libraries(StreamingDemo ${OPENCV_LIBS})
-target_link_libraries(StreamingDemo tensorflow_cc)
+target_link_libraries(StreamingDemo Detection)
