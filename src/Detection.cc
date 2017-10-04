@@ -21,7 +21,7 @@ int Detector::InitSession( std::string& model_path )
     ( gpu_device_id == -1 ) ? "/cpu:0" : ( "/gpu:" + std::to_string( gpu_device_id ) ), graph );
     if( !status.ok() )
     {
-        database->LogError( status.ToString(), ErrorType::FATAL );
+        logger->LogError( status.ToString(), ErrorType::FATAL );
         return -1;
     }
 
@@ -34,7 +34,7 @@ int Detector::InitSession( std::string& model_path )
     status = tensorflow::NewSession( opts, &session );
     if( !status.ok() )
     {
-        database->LogError( status.ToString(), ErrorType::FATAL );
+        logger->LogError( status.ToString(), ErrorType::FATAL );
         return -1;
     }
 
@@ -42,7 +42,7 @@ int Detector::InitSession( std::string& model_path )
     status = session->Create( *graph );
     if( !status.ok() )
     {
-        database->LogError( status.ToString(), ErrorType::FATAL );
+        logger->LogError( status.ToString(), ErrorType::FATAL );
         return -1;
     }
 
@@ -56,7 +56,7 @@ int Detector::CloseSession()
         tensorflow::Status status = session->Close();
         if( !status.ok() )
         {
-            database->LogError( status.ToString(), ErrorType::FATAL );
+            logger->LogError( status.ToString(), ErrorType::FATAL );
             return -1;
         }
         session = nullptr;
@@ -70,7 +70,7 @@ int Detector::CloseSession()
 
 struct VisParam
 {
-    VisParam( std::queue< cv::Mat* >* _frame_queue, size_t _batch_size, Database* _database )
+    VisParam( std::queue< cv::Mat* >* _frame_queue, size_t _batch_size, Logger* _database )
     {
         frame_queue = _frame_queue;
         batch_size = _batch_size;
@@ -78,7 +78,7 @@ struct VisParam
     }
     std::queue< cv::Mat* >* frame_queue;
     size_t batch_size;
-    Database* database;
+    Logger* database;
 };
 
 void* VisualiseThread( void* param_ptr )
@@ -128,13 +128,13 @@ int Detector::ProcMP4( std::string& mp4_path, std::string outfile_name, bool vis
 {
     if( !session )
     {
-        database->LogError( "Session is not initialised", ErrorType::FATAL );
+        logger->LogError( "Session is not initialised", ErrorType::FATAL );
         return -1;
     }
     cv::VideoCapture cap( mp4_path );
     if( !cap.isOpened() )
     {
-        database->LogError( "Failed to open: " + mp4_path, ErrorType::FATAL );
+        logger->LogError( "Failed to open: " + mp4_path, ErrorType::FATAL );
         return -1;
     }
 
@@ -142,12 +142,12 @@ int Detector::ProcMP4( std::string& mp4_path, std::string outfile_name, bool vis
     std::queue< cv::Mat* > frame_queue;
 
     pthread_t vis_thread;
-    VisParam param( &frame_queue, batch_size, database );
+    VisParam param( &frame_queue, batch_size, logger );
     if( visualise )
     {
         if( pthread_create( &vis_thread, NULL, VisualiseThread, (void*)&param ) )
         {
-            database->LogError( "Failed to launch visualisation thread", ErrorType::WARNING );
+            logger->LogError( "Failed to launch visualisation thread", ErrorType::WARNING );
             visualise = false;
         }
     }
@@ -272,7 +272,7 @@ int Detector::DetectObjects( tensorflow::Tensor& input_tensor, std::vector< tens
     inputs, { "detection_boxes:0", "detection_scores:0", "detection_classes:0", "num_detections:0" }, {}, &outputs );
     if( !status.ok() )
     {
-        database->LogError( status.ToString(), ErrorType::FATAL );
+        logger->LogError( status.ToString(), ErrorType::FATAL );
         return -1;
     }
 
@@ -350,7 +350,7 @@ int Detector::LogDetection( LogType log_type,
             }
         }
 
-        if( database->LogDetection(
+        if( logger->LogDetection(
             log_type, log_data, file_name, outfile_name, frame_ids.empty() ? -1 : (ssize_t)frame_ids[ i ] ) == -1 )
         {
             return -1;

@@ -1,7 +1,7 @@
-#include "Database.h"
+#include "Logging.h"
 namespace MajorProject
 {
-std::string Database::GetErrorString( ErrorType error )
+std::string Logger::GetErrorString( ErrorType error )
 {
     switch( error )
     {
@@ -16,7 +16,7 @@ std::string Database::GetErrorString( ErrorType error )
     }
 }
 
-std::string Database::EscapeInfile( std::string& infile )
+std::string Logger::EscapeInfile( std::string& infile )
 {
     std::string outfile;
 
@@ -45,7 +45,7 @@ std::string Database::EscapeInfile( std::string& infile )
     return outfile;
 }
 
-int Database::LogDetection(
+int Logger::LogDetection(
 LogType log_type, std::vector< BoundingBox >& detections, std::string& infile, std::string& outfile, ssize_t frame_id )
 {
     std::ofstream writer;
@@ -84,7 +84,7 @@ LogType log_type, std::vector< BoundingBox >& detections, std::string& infile, s
     return 0;
 }
 
-void Database::LogError( std::string message, ErrorType error )
+void Logger::LogError( std::string message, ErrorType error )
 {
     if( error_file != "" )
     {

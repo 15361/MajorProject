@@ -19,9 +19,9 @@ int main( int argc, char** argv )
         outdir = ".";
     }
 
-    MajorProject::Database* database = new MajorProject::Database( outdir, "" );
+    MajorProject::Logger* logger = new MajorProject::Logger( outdir, "" );
 
-    MajorProject::Detector detector( database );
+    MajorProject::Detector detector( logger );
     detector.SetConfidenceThreshold( 0.1 );
     detector.SetBatchSize( 1 );
     detector.SetAllowGrowth( true );

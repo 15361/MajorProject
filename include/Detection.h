@@ -6,19 +6,19 @@
 #include <pthread.h>
 #include <chrono>
 
-#include "Database.h"
+#include "Logging.h"
 
 namespace MajorProject
 {
 class Detector
 {
 public:
-    Detector( Database* _database )
+    Detector( Logger* _logger )
         : session( nullptr )
         , graph( nullptr )
         , confidence_threshold( 0.5 )
         , label_map( { { 1, "face" } } )
-        , database( _database )
+        , logger( _logger )
         , batch_size( 1 )
         , session_gpu_memory_fraction( 0.8 )
         , allow_growth( true )
@@ -89,9 +89,9 @@ public:
     /*
      * @SetDatabase	Sets logging database for recording detected faces
      */
-    void SetDatabase( Database* _database )
+    void SetDatabase( Logger* _logger )
     {
-        database = _database;
+        logger = _logger;
     }
 
     /*
@@ -144,7 +144,7 @@ private:
     tensorflow::GraphDef* graph;
     double confidence_threshold;
     std::map< size_t, std::string > label_map;
-    Database* database;
+    Logger* logger;
     size_t batch_size;
 
     double session_gpu_memory_fraction;
