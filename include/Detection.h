@@ -24,6 +24,9 @@ public:
         , allow_growth( true )
         , gpu_device_id( -1 )
     {
+        // Does not overwrite env variable if it is set
+        setenv( "TF_CPP_MIN_LOG_LEVEL", "2", 0 );
+        setenv( "TF_CPP_MIN_VLOG_LEVEL", "3", 0 );
     }
 
     ~Detector()
@@ -124,6 +127,26 @@ public:
     void SetGpuDeviceId( ssize_t _gpu_device_id )
     {
         gpu_device_id = _gpu_device_id;
+    }
+
+    /*
+     * @SetTensorflowLogLevel	Sets log level for tensorflow. Options are INFO=0, WARNING=1, ERROR=2 and FATAL=3
+     *
+     * NOTE Tensorflow currently does not have a way to set this internally so this affects all instances
+     */
+    void SetTensorflowLogLevel( size_t log_level )
+    {
+        setenv( "TF_CPP_MIN_LOG_LEVEL", std::to_string( log_level ).c_str(), 1 );
+    }
+
+    /*
+     * @SetTensorflowVLogLevel	Sets VLog level for tensorflow. Options are INFO=0, WARNING=1, ERROR=2 and FATAL=3
+     *
+     * NOTE Tensorflow currently does not have a way to set this internally so this affects all instances
+     */
+    void SetTensorflowVLogLevel( size_t log_level )
+    {
+        setenv( "TF_CPP_MIN_VLOG_LEVEL", std::to_string( log_level ).c_str(), 1 );
     }
 
 private:

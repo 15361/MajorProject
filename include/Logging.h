@@ -38,7 +38,7 @@ struct BoundingBox
 class Logger
 {
 public:
-    Logger( std::string _data_directory, std::string _error_file )
+    Logger( std::string _data_directory, std::string _error_file = "" )
         : data_directory( _data_directory )
         , error_file( _error_file )
         , delim( "," )

@@ -1,5 +1,5 @@
 #include "Detection.h"
-#include "Database.h"
+#include "Logging.h"
 
 int main( int argc, char** argv )
 {
@@ -27,6 +27,8 @@ int main( int argc, char** argv )
     detector.SetAllowGrowth( true );
     detector.SetSessionGpuMemoryFraction( 1.0 );
     detector.SetGpuDeviceId( 0 );
+    detector.SetTensorflowLogLevel( 2 );
+    detector.SetTensorflowVLogLevel( 3 );
     detector.InitSession( model );
     detector.ProcMP4( infile, outfile, true );
 
