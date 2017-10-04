@@ -2,6 +2,7 @@
 #include <opencv2/opencv.hpp>
 #include <tensorflow/core/public/session.h>
 #include <tensorflow/core/platform/env.h>
+#include "tensorflow/core/graph/default_device.h"
 #include <pthread.h>
 #include <chrono>
 
@@ -14,10 +15,14 @@ class Detector
 public:
     Detector( Database* _database )
         : session( nullptr )
+        , graph( nullptr )
         , confidence_threshold( 0.5 )
         , label_map( { { 1, "face" } } )
         , database( _database )
         , batch_size( 1 )
+        , session_gpu_memory_fraction( 0.8 )
+        , allow_growth( true )
+        , gpu_device_id( -1 )
     {
     }
 
@@ -49,7 +54,7 @@ public:
      *
      * @return	-1 on failure, 0 otherwise
      */
-    int ProcMP4( std::string& mp4_path, bool visualise = false );
+    int ProcMP4( std::string& mp4_path, std::string outfile = "", bool visualise = false );
 
     /*
      * @ProcJPG	Detects objects in an JPEG file
@@ -58,7 +63,7 @@ public:
      *
      * @return	-1 on failure, 0 otherwise
      */
-    int ProcJPG( std::string& image_path, bool visualise = false )
+    int ProcJPG( std::string& image_path, std::string outfile_name = "", bool visualise = false )
     {
         return 0;
     }
@@ -89,9 +94,36 @@ public:
         database = _database;
     }
 
+    /*
+     * @SetBatchSize	Sets batch_size for video frames
+     */
     void SetBatchSize( size_t _batch_size )
     {
         batch_size = _batch_size;
+    }
+
+    /*
+     * @SetSessionGpuMemoryFraction	Sets maximum fraction of GPU memory a session can consume. Between 0 and 1
+     */
+    void SetSessionGpuMemoryFraction( double _session_gpu_memory_fraction )
+    {
+        session_gpu_memory_fraction = _session_gpu_memory_fraction;
+    }
+
+    /*
+     * @SetAllowGrowth	Sets whether the session will allocate memory as necessary or all at once
+     */
+    void SetAllowGrowth( bool _allow_growth )
+    {
+        allow_growth = _allow_growth;
+    }
+
+    /*
+     * @SetGpuDeviceId	Sets device ID for the GPU to use. -1 for CPU
+     */
+    void SetGpuDeviceId( ssize_t _gpu_device_id )
+    {
+        gpu_device_id = _gpu_device_id;
     }
 
 private:
@@ -105,12 +137,19 @@ private:
                       std::vector< cv::Mat* > frames,
                       std::vector< tensorflow::Tensor >& detection_results,
                       std::string& file_name,
+                      std::string& outfile_name,
                       std::vector< size_t > frame_ids );
 
     tensorflow::Session* session;
+    tensorflow::GraphDef* graph;
     double confidence_threshold;
     std::map< size_t, std::string > label_map;
     Database* database;
     size_t batch_size;
+
+    double session_gpu_memory_fraction;
+    bool allow_growth;
+
+    size_t gpu_device_id;
 };
 }

@@ -7,28 +7,42 @@ int Detector::InitSession( std::string& model_path )
     {
         return -1;
     }
+    tensorflow::Status status;
+    tensorflow::SessionOptions opts;
 
-    // Initialize a tensorflow session
-    tensorflow::Status status = tensorflow::NewSession( tensorflow::SessionOptions(), &session );
+
+    if( graph )
+    {
+        delete graph;
+    }
+    graph = new tensorflow::GraphDef();
+    status = tensorflow::ReadBinaryProto( tensorflow::Env::Default(), model_path, graph );
+    tensorflow::graph::SetDefaultDevice(
+    ( gpu_device_id == -1 ) ? "/cpu:0" : ( "/gpu:" + std::to_string( gpu_device_id ) ), graph );
     if( !status.ok() )
     {
-        std::cout << status.ToString() << std::endl;
+        database->LogError( status.ToString(), ErrorType::FATAL );
         return -1;
     }
 
-    tensorflow::GraphDef graph_def;
-    status = tensorflow::ReadBinaryProto( tensorflow::Env::Default(), model_path, &graph_def );
+    opts.config.mutable_gpu_options()->set_per_process_gpu_memory_fraction( session_gpu_memory_fraction );
+    opts.config.mutable_gpu_options()->set_allow_growth( allow_growth );
+    opts.config.set_allow_soft_placement( true );
+    // opts.config.set_log_device_placement( true );
+
+    // Initialize a tensorflow session
+    status = tensorflow::NewSession( opts, &session );
     if( !status.ok() )
     {
-        std::cout << status.ToString() << std::endl;
+        database->LogError( status.ToString(), ErrorType::FATAL );
         return -1;
     }
 
     // Add the graph to the session
-    status = session->Create( graph_def );
+    status = session->Create( *graph );
     if( !status.ok() )
     {
-        std::cout << status.ToString() << std::endl;
+        database->LogError( status.ToString(), ErrorType::FATAL );
         return -1;
     }
 
@@ -42,23 +56,29 @@ int Detector::CloseSession()
         tensorflow::Status status = session->Close();
         if( !status.ok() )
         {
-            std::cout << status.ToString() << std::endl;
+            database->LogError( status.ToString(), ErrorType::FATAL );
             return -1;
         }
         session = nullptr;
+    }
+    if( graph )
+    {
+        delete graph;
     }
     return 0;
 }
 
 struct VisParam
 {
-    VisParam( std::queue< cv::Mat* >* _frame_queue, size_t _batch_size )
+    VisParam( std::queue< cv::Mat* >* _frame_queue, size_t _batch_size, Database* _database )
     {
         frame_queue = _frame_queue;
         batch_size = _batch_size;
+        database = _database;
     }
     std::queue< cv::Mat* >* frame_queue;
     size_t batch_size;
+    Database* database;
 };
 
 void* VisualiseThread( void* param_ptr )
@@ -68,8 +88,17 @@ void* VisualiseThread( void* param_ptr )
     cv::namedWindow( "Video" );
     while( true )
     {
+        auto start = std::chrono::steady_clock::now();
         while( frame_queue->empty() )
         {
+            auto end = std::chrono::steady_clock::now();
+            auto diff = end - start;
+            if( std::chrono::duration< double, std::milli >( diff ).count() >= 10000 )
+            {
+                param->database->LogError( "Visualisation did not receive frame for 10 seconds. Terminating.",
+                                           ErrorType::INFO );
+                pthread_exit( NULL );
+            }
         }
 
         if( frame_queue->front() == nullptr )
@@ -81,7 +110,7 @@ void* VisualiseThread( void* param_ptr )
         frame_queue->pop();
         if( cvGetWindowHandle( "Video" ) == 0 )
         {
-            std::cout << "Window closed. Stopping visualisation" << std::endl;
+            param->database->LogError( "Window closed. Stopping visualisation", ErrorType::INFO );
             pthread_exit( NULL );
         }
         cv::imshow( "Video", *frame );
@@ -95,17 +124,17 @@ void* VisualiseThread( void* param_ptr )
     pthread_exit( NULL );
 }
 
-int Detector::ProcMP4( std::string& mp4_path, bool visualise )
+int Detector::ProcMP4( std::string& mp4_path, std::string outfile_name, bool visualise )
 {
     if( !session )
     {
-        std::cout << "Session is not initialised" << std::endl;
+        database->LogError( "Session is not initialised", ErrorType::FATAL );
         return -1;
     }
     cv::VideoCapture cap( mp4_path );
     if( !cap.isOpened() )
     {
-        std::cout << "Failed to open: " << mp4_path;
+        database->LogError( "Failed to open: " + mp4_path, ErrorType::FATAL );
         return -1;
     }
 
@@ -113,13 +142,13 @@ int Detector::ProcMP4( std::string& mp4_path, bool visualise )
     std::queue< cv::Mat* > frame_queue;
 
     pthread_t vis_thread;
-    VisParam param( &frame_queue, batch_size );
+    VisParam param( &frame_queue, batch_size, database );
     if( visualise )
     {
         if( pthread_create( &vis_thread, NULL, VisualiseThread, (void*)&param ) )
         {
-            std::cout << "Failed to launch visualisation thread" << std::endl;
-            return -1;
+            database->LogError( "Failed to launch visualisation thread", ErrorType::WARNING );
+            visualise = false;
         }
     }
     size_t fps = (size_t)cap.get( cv::CAP_PROP_FPS );
@@ -129,6 +158,8 @@ int Detector::ProcMP4( std::string& mp4_path, bool visualise )
     std::vector< size_t > frame_ids;
     frames.reserve( batch_size );
     frame_ids.reserve( batch_size );
+
+    int return_code = 0;
     for( size_t i = 0; i < frame_count; i++ )
     {
         cv::Mat* frame = new cv::Mat();
@@ -152,19 +183,22 @@ int Detector::ProcMP4( std::string& mp4_path, bool visualise )
             std::vector< tensorflow::Tensor > output_tensors;
             if( DetectObjects( input_tensor, output_tensors ) == -1 )
             {
-                return -1;
+                return_code = -1;
+                break;
             }
 
-            if( LogDetection( LogType::MP4, frames, output_tensors, mp4_path, frame_ids ) == -1 )
+            if( LogDetection( LogType::MP4, frames, output_tensors, mp4_path, outfile_name, frame_ids ) == -1 )
             {
-                return -1;
+                return_code = -1;
+                break;
             }
 
             if( visualise )
             {
                 if( VisualiseDetection( frames, output_tensors ) == -1 )
                 {
-                    return -1;
+                    return_code = -1;
+                    break;
                 }
 
                 for( size_t j = 0; j < frames.size(); j++ )
@@ -200,7 +234,7 @@ int Detector::ProcMP4( std::string& mp4_path, bool visualise )
         }
     }
 
-    return 0;
+    return return_code;
 }
 
 
@@ -238,7 +272,7 @@ int Detector::DetectObjects( tensorflow::Tensor& input_tensor, std::vector< tens
     inputs, { "detection_boxes:0", "detection_scores:0", "detection_classes:0", "num_detections:0" }, {}, &outputs );
     if( !status.ok() )
     {
-        std::cout << status.ToString() << std::endl;
+        database->LogError( status.ToString(), ErrorType::FATAL );
         return -1;
     }
 
@@ -263,8 +297,8 @@ int Detector::VisualiseDetection( std::vector< cv::Mat* >& frames,
                 size_t pixel_min_x = frame.cols * box( i, j, 1 );
                 size_t pixel_max_y = frame.rows * box( i, j, 2 );
                 size_t pixel_max_x = frame.cols * box( i, j, 3 );
-                size_t blue = (pixel_min_x >= pixel_max_x) ? 255 : 0;
-                size_t red = (pixel_min_y >= pixel_max_y) ? 255 : 0;
+                size_t blue = ( pixel_min_x >= pixel_max_x ) ? 255 : 0;
+                size_t red = ( pixel_min_y >= pixel_max_y ) ? 255 : 0;
                 cv::rectangle( frame,
                                cv::Point( pixel_min_x, pixel_min_y ),
                                cv::Point( pixel_max_x, pixel_max_y ),
@@ -288,6 +322,7 @@ int Detector::LogDetection( LogType log_type,
                             std::vector< cv::Mat* > frames,
                             std::vector< tensorflow::Tensor >& detection_results,
                             std::string& file_name,
+                            std::string& outfile_name,
                             std::vector< size_t > frame_ids )
 {
     for( size_t i = 0; i < batch_size; i++ )
@@ -315,8 +350,8 @@ int Detector::LogDetection( LogType log_type,
             }
         }
 
-        if( database->LogDetection( log_type, log_data, file_name, frame_ids.empty() ? -1 : (ssize_t)frame_ids[ i ] ) ==
-            -1 )
+        if( database->LogDetection(
+            log_type, log_data, file_name, outfile_name, frame_ids.empty() ? -1 : (ssize_t)frame_ids[ i ] ) == -1 )
         {
             return -1;
         }
