@@ -72,5 +72,5 @@ make -j8
 
 From build directory  
 ```
-./bin/StreamingDemo in.mp4 out.mp4
+./bin/StreamingDemo ../video/in.mp4 ../video/out.mp4 ../path/to/unzipped/model.pb
 ```
