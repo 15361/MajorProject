@@ -9,44 +9,43 @@ ADD . /FaceDetection
 
 # Install any needed packages
 RUN apt-get update
-RUN apt-get install -y wget python-pip python-dev protobuf-compiler python-pil python-lxml git
+RUN apt-get install -y git build-essential cmake clang-3.8 clang++-3.8 clang-format-3.6 curl
 
-# Install Object Recognition Framework
-RUN git clone https://github.com/tensorflow/models.git
-RUN pip install tensorflow
-RUN pip install jupyter
-RUN pip install matplotlib
-RUN cd models && protoc object_detection/protos/*.proto --python_out=.
-RUN cd models && export PYTHONPATH=$PYTHONPATH:`pwd`:`pwd`/slim
+# Unzip ssd model
+RUN tar -xzf ssd_frozen_model.tar.gz
 
-# Install frozen model
-RUN cd models && wget http://download.tensorflow.org/models/object_detection/ssd_mobilenet_v1_coco_11_06_2017.tar.gz
-RUN cd models && tar -xzvf ssd_mobilenet_v1_coco_11_06_2017.tar.gz
+# Install OpenCV
+RUN apt-get install -y libgtk2.0-dev pkg-config libavcodec-dev libavformat-dev libswscale-dev
+RUN apt-get install -y python-dev python-numpy libtbb2 libtbb-dev libjpeg-dev libpng-dev libtiff-dev libjasper-dev libdc1394-22-dev
+RUN git clone https://github.com/Itseez/opencv.git
+RUN cd opencv && mkdir build && cd build && cmake -D CMAKE_BUILD_TYPE=RELEASE -D CMAKE_INSTALL_PREFIX=/usr/local .. && make -j4 && make install
 
-# Download and Extract Data Sets
-RUN wget http://vis-www.cs.umass.edu/lfw/lfw.tgz
-RUN wget http://www.vision.caltech.edu/Image_Datasets/Caltech101/101_ObjectCategories.tar.gz
-RUN tar -xzf lfw.tgz
-RUN tar -xzf 101_ObjectCategories.tar.gz
-RUN rm -rf 101_ObjectCategories/face*
-RUN rm lfw.tgz 101_ObjectCategories.tar.gz
-RUN mkdir lfw_sorted
-RUN mkdir 101_sorted
-RUN mv $(ls -d lfw/*/*) lfw_sorted/
-RUN cd 101_ObjectCategories && FILES=$(ls -d */*); for FILE in $FILES; do mv $FILE /FaceDetection/101_sorted/$(echo "$FILE" | sed "s/\//-/g"); done
-RUN rm -rf lfw 101_ObjectCategories
+# Install Tensorflow
+RUN git clone https://github.com/tensorflow/tensorflow 
+RUN apt-get install -y openjdk-8-jdk
+RUN add-apt-repository ppa:webupd8team/java && apt-get update && apt-get install oracle-java8-installer
+RUN echo "deb [arch=amd64] http://storage.googleapis.com/bazel-apt stable jdk1.8" | tee /etc/apt/sources.list.d/bazel.list && curl https://bazel.build/bazel-release.pub.gpg | apt-key add -
+RUN apt-get update && apt-get install bazel && apt-get upgrade bazel
+RUN cd tensorflow && bazel build -c opt //tensorflow:libtensorflow_cc.so
+RUN cp tensorflow/bazel-bin/tensorflow/libtensorflow_cc.so /usr/local/lib
+RUN mkdir /usr/local/include/tensorflow
+RUN cd tensorflow/ && cp -r bazel-genfiles /usr/local/include/tensorflow/ && cp -r tensorflow /usr/local/include/tensorflow/ && cp -r third_party /usr/local/include/tensorflow/
 
-# Get FDDB Datasets
-RUN wget http://vis-www.cs.umass.edu/fddb/FDDB-folds.tgz
-RUN tar -xvf FDDB-folds.tgz
-RUN wget http://tamaraberg.com/faceDataset/originalPics.tar.gz
-RUN mkdir FDDB-pics
-RUN cd FDDB-pics && tar -xvf ../originalPics.tar.gz
+# Tensorflow dependencies
+RUN cd tensorflow && tensorflow/contrib/makefile/download_dependencies.sh
 
-# Install split data
-RUN wget http://vis-www.cs.umass.edu/lfw/peopleDevTrain.txt
-RUN wget http://vis-www.cs.umass.edu/lfw/peopleDevTest.txt
+# Protobuf
+RUN mkdir /tmp/proto
+RUN cd tensorflow/tensorflow/contrib/makefile/downloads/protobuf/ && ./autogen.sh && ./configure --prefix=/tmp/proto/ && make -j4 && make install
+RUN cp /tmp/proto/lib/libprotobuf.so /usr/local/lib && cp -r /tmp/proto/include/* /usr/local/include
 
+# Eigen
+RUN mkdir /tmp/eigen
+RUN cd tensorflow/tensorflow/contrib/makefile/downloads/eigen && mkdir build && cd build && cmake -DCMAKE_INSTALL_PREFIX=/tmp/eigen/ ../ && make -j4 && make install
+RUN cp -r /tmp/eigen/include/eigen3/* /usr/local/include
+
+# Nsync
+RUN cp -r tensorflow/contrib/makefile/downloads/nsync/public/* /usr/local/include/nsync
 
 
 # Run FaceDetection.py when the container launches

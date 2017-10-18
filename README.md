@@ -16,7 +16,7 @@ Follow instructions https://www.tensorflow.org/install/install_sources to instal
 From tensorflow root directory  
 ```
 bazel build -c opt //tensorflow:libtensorflow_cc.so   
-sudo cp bazel-bin/tensorflow/libtensorflow.so /usr/local/lib  
+sudo cp bazel-bin/tensorflow/libtensorflow_cc.so /usr/local/lib 
 
 mkdir /usr/local/include/tensorflow
 cp -r bazel-genfiles/ /usr/local/include/tensorflow/
