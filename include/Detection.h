@@ -54,6 +54,8 @@ public:
      * @ProcMP4	Detects objects in an MP4 file
      *
      * @param mp4_path	Path to .mp4 file to process
+     * @param outfile_name  Name of file to log to for this detection
+     * @param visualise Whether or not the program should provide real time visualisation
      *
      * @return	-1 on failure, 0 otherwise
      */
@@ -63,6 +65,8 @@ public:
      * @ProcJPG	Detects objects in an JPEG file
      *
      * @param mp4_path	Path to .jpg file to process
+     * @param outfile_name  Name of file to log to for this detection
+     * @param visualise Whether or not the program should provide real time visualisation
      *
      * @return	-1 on failure, 0 otherwise
      */
